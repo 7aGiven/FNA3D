@@ -5289,6 +5289,26 @@ static uint8_t D3D11_PrepareWindowAttributes(uint32_t *flags)
 		return 0;
 	}
 
+	SDL_SharedObject* dxgi_dll = SDL_LoadObject(DXGI_DLL);
+	if (dxgi_dll != NULL)
+	{
+		typedef HRESULT(WINAPI* PFN_CREATE_DXGI_FACTORY)(const GUID* riid, void** ppFactory);
+		PFN_CREATE_DXGI_FACTORY CreateDXGIFactoryFunc = SDL_LoadFunction(dxgi_dll, "CreateDXGIFactory1");
+		if (CreateDXGIFactoryFunc != NULL)
+		{
+			IDXGIFactory5* factory;
+			int allow_tearing = 0;
+			if (CreateDXGIFactoryFunc(&D3D_IID_IDXGIFactory5, &factory) == S_OK) {
+				IDXGIFactory5_CheckFeatureSupport(factory, DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allow_tearing, sizeof allow_tearing);
+				IDXGIFactory5_Release(factory);
+				if (allow_tearing || !SDL_GetHintBoolean("FNA3D_D3D11_FORCE_BITBLT", SDL_FALSE)) {
+					SDL_SetHint("SDL_VIDEO_WIN_NOREDIRECTIONBITMAP", "1");
+				}
+			}
+		}
+	SDL_UnloadObject(dxgi_dll);
+	}
+
 	/* No window flags required */
 #if SDL_MAJOR_VERSION < 3
 	SDL_SetHint(SDL_HINT_VIDEO_EXTERNAL_CONTEXT, "1");
